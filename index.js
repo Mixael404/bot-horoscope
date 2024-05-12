@@ -1,4 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
+import OpenAI from "openai";
 import { bigBackOption, periodOptions, signOptions } from "./options.js";
 const TOKEN = "7193048813:AAEVXbWS9ZDu0tC9K8InfeDgM5aH5U0kze0";
 
@@ -20,10 +21,27 @@ const SIGNS = [
   "Pisces",
 ];
 
+const REQUEST_HEADING = "Переведи на русский язык этот астрологический прогноз. Переводи название знака зодиака так, как оно пишется на русском языке:"
 
+const openai = new OpenAI({
+  organization: "org-VhVLUTAhfUyYSs6tTQnCytZq",
+  project: "proj_4szXpGVlXpRWFv2UmNIIIDK4",
+  apiKey: "sk-proj-qEk7gvBgAJtlkB0278TqT3BlbkFJ6yNCZZhLUFjvHqIZfNYe",
+});
 
 
 const chats = {}
+
+async function translateOnRussian(text){
+  const requestBody = {
+    model: "gpt-3.5-turbo",
+    messages: [{ role: "user", content: `${text}` }],
+    temperature: 0.8,
+    max_tokens: 1000,
+  };
+  const response = await openai.chat.completions.create(requestBody);
+  return response.choices[0].message.content
+}
 
 async function getHoroscope(sign, period) {
   if (!SIGNS.includes(sign)) return false;
@@ -32,6 +50,8 @@ async function getHoroscope(sign, period) {
   const data = await response.json();
   return data["data"]["horoscope_data"];
 }
+
+
 
 const start = () => {
   bot.setMyCommands([
@@ -79,7 +99,6 @@ const start = () => {
   bot.on('callback_query', async (msg) => {
     const chatId = msg.message.chat.id
     const data = msg.data
-    let period
 
     if(data === "daily"){
         chats[chatId] = 'daily'
@@ -95,12 +114,13 @@ const start = () => {
         const period = chats[chatId]
         let headerText
         const horoscopeText = await getHoroscope(data, period)
+        const translatedHoroscope = await translateOnRussian(horoscopeText)
         if(period === 'daily'){
             headerText = 'Ваш астрологический прогноз на день:'
         } else if(period === 'monthly'){
             headerText = 'Ваш астрологический прогноз на месяц:'
         }
-        return bot.sendMessage(chatId, `${headerText}\n\n${horoscopeText}`, bigBackOption)
+        return bot.sendMessage(chatId, `${headerText}\n\n${translatedHoroscope}`, bigBackOption)
     }
 
     return bot.sendMessage(chatId, "Выбери, на какой период тебе выдать прогноз", periodOptions)
